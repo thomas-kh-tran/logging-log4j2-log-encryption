@@ -68,9 +68,11 @@ public class SecureFileAppender extends AbstractAppender {
         byte[] data = getLayout().toByteArray(event);
         if (enableHashing && digest != null) {
             byte[] hash = digest.digest(data);
-            byte[] combined = new byte[data.length + hash.length];
+            // Create a new array that includes data, hash, and the newline character
+            byte[] combined = new byte[data.length + hash.length + 1]; // +1 for the newline
             System.arraycopy(data, 0, combined, 0, data.length);
             System.arraycopy(hash, 0, combined, data.length, hash.length);
+            combined[combined.length - 1] = '\n'; // Add newline at the end
             manager.write(combined, 0, combined.length, true);
         } else {
             manager.write(data, 0, data.length, true);
@@ -81,6 +83,8 @@ public class SecureFileAppender extends AbstractAppender {
     public static SecureFileAppender createAppender(
             @PluginAttribute("name") String name,
             @PluginAttribute("fileName") String fileName,
+            @PluginAttribute("salt") String salt,
+            @PluginAttribute("iv") String iv,
             @PluginAttribute("encryptionKey") String encryptionKey,
             @PluginAttribute(value = "append", defaultBoolean = true) boolean append,
             @PluginAttribute(value = "enableEncryption", defaultBoolean = false) boolean enableEncryption,
@@ -103,7 +107,7 @@ public class SecureFileAppender extends AbstractAppender {
         }
 
         SecureFileManager manager =
-                SecureFileManager.getFileManager(fileName, append, encryptionKey, enableEncryption, layout);
+                SecureFileManager.getFileManager(fileName, append, encryptionKey, iv, layout, enableEncryption);
         return new SecureFileAppender(name, filter, layout, true, manager, enableEncryption, enableHashing);
     }
 
@@ -112,4 +116,5 @@ public class SecureFileAppender extends AbstractAppender {
         super.stop();
         manager.close();
     }
+
 }
