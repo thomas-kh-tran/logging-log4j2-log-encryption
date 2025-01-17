@@ -36,11 +36,7 @@ public class SecureFileManager extends OutputStreamManager {
     private static final StatusLogger LOGGER = StatusLogger.getLogger();
     private static final SecureFileManagerFactory FACTORY = new SecureFileManagerFactory();
 
-    protected SecureFileManager(
-            OutputStream os,
-            String fileName,
-            Layout<?> layout,
-            boolean writeHeader) {
+    protected SecureFileManager(OutputStream os, String fileName, Layout<?> layout, boolean writeHeader) {
         super(os, fileName, layout, writeHeader);
     }
 
@@ -85,11 +81,23 @@ public class SecureFileManager extends OutputStreamManager {
             try {
                 File file = new File(data.fileName);
                 FileUtils.makeParentDirs(file);
-                OutputStream os = new FileOutputStream(file, data.append);
 
+                byte[] existingContent = null;
+
+                // Handle append logic by decrypting existing file content
+                if (data.append && file.exists()) {
+                    existingContent = decryptToBytes(file, data.encryptionKey, data.iv);
+                }
+
+                // Prepare output stream (overwrite mode)
+                OutputStream os = new FileOutputStream(file, false);
                 if (data.enableEncryption && data.encryptionKey != null && !data.encryptionKey.isEmpty()) {
-                    Cipher cipher = initCipher(data.encryptionKey, data.iv);
+                    Cipher cipher = initCipher(Cipher.ENCRYPT_MODE, data.encryptionKey, data.iv);
                     os = new CipherOutputStream(os, cipher);
+                    // If existing content is not null, re-encrypt and write it back
+                    if (existingContent != null) {
+                        os.write(existingContent);
+                    }
                 }
 
                 return new SecureFileManager(os, name, data.layout, true);
@@ -99,39 +107,43 @@ public class SecureFileManager extends OutputStreamManager {
             }
         }
 
-        private Cipher initCipher(String key, String iv) throws GeneralSecurityException {
-            // SecretKey secretKey = deriveKey(key, salt);
+        private Cipher initCipher(int mode, String key, String iv) throws GeneralSecurityException {
             Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
             SecretKey secretKey = new SecretKeySpec(key.getBytes(), "AES");
-            byte[] ivBytes = iv.getBytes();
-            IvParameterSpec ivParams = new IvParameterSpec(ivBytes);
-
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParams);
+            IvParameterSpec ivParams = new IvParameterSpec(iv.getBytes());
+            cipher.init(mode, secretKey, ivParams);
             return cipher;
         }
 
-        // Method to decrypt data from a file
-        public String decrypt(String fileName, String encryptionKey, String iv) throws Exception {
+        // Method to decrypt data and return as byte array
+        private byte[] decryptToBytes(File file, String encryptionKey, String iv) {
+            try {
+                byte[] encryptedData = Files.readAllBytes(file.toPath());
+                Cipher cipher = initCipher(Cipher.DECRYPT_MODE, encryptionKey, iv);
+                return cipher.doFinal(encryptedData);
+            } catch (IOException | GeneralSecurityException e) {
+                LOGGER.error("Failed to decrypt file: {}", file.getName(), e);
+                return null;
+            }
+        }
+
+        // Method to decrypt data and return as String
+        public String decryptToString(String fileName, String encryptionKey, String iv) {
             File file = new File(fileName);
-            byte[] encryptedData;
-
-            encryptedData = Files.readAllBytes(file.toPath());
-
-
-            SecretKey secretKey = new SecretKeySpec(encryptionKey.getBytes(), "AES");
-            Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
-            IvParameterSpec ivParams = new IvParameterSpec(iv.getBytes());
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParams);
-
-            byte[] decryptedData = cipher.doFinal(encryptedData);
+            byte[] decryptedData = decryptToBytes(file, encryptionKey, iv);
             return new String(decryptedData);
         }
     }
 
+    /**
+     * Public method to allow users to decrypt the log file and get the content as a String.
+     * Example usage:
+     * System.out.println(SecureFileManager.decryptFile("logs/secure.log", "yourKey", "yourIV"));
+     */
     public static String decryptFile(String fileName, String encryptionKey, String iv) {
         try {
             SecureFileManagerFactory factory = new SecureFileManagerFactory();
-            return factory.decrypt(fileName, encryptionKey, iv);
+            return factory.decryptToString(fileName, encryptionKey, iv);
         } catch (Exception e) {
             LOGGER.error("Failed to decrypt file: {}", fileName, e);
             return null;

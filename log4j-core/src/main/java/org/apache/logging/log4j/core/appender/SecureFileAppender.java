@@ -116,5 +116,4 @@ public class SecureFileAppender extends AbstractAppender {
         super.stop();
         manager.close();
     }
-
 }
