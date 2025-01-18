@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import javax.crypto.Cipher;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.SecretKey;
@@ -192,8 +193,19 @@ public class SecureFileManager extends OutputStreamManager {
 
             // If hashing is enabled, append the hash to the data
             if (enableHashing && digest != null) {
-                byte[] hash = digest.digest(bytes);
-                String combinedData = new String(bytes) + HASH_SEPARATOR + bytesToHex(hash) + HASH_SEPARATOR + '\n';
+                // Normalize line endings for consistent hashing
+                int dataLength = length;
+                while (dataLength > 0
+                        && (bytes[offset + dataLength - 1] == '\n' || bytes[offset + dataLength - 1] == '\r')) {
+                    dataLength--;
+                }
+
+                // Hash the normalized data
+                byte[] normalizedData = Arrays.copyOfRange(bytes, offset, offset + dataLength);
+                byte[] hash = digest.digest(normalizedData);
+
+                // Construct the output with the hash and a newline
+                String combinedData = new String(bytes, offset, dataLength) + HASH_SEPARATOR + bytesToHex(hash) + '\n';
                 dataToWrite = combinedData.getBytes();
             }
 
@@ -207,38 +219,4 @@ public class SecureFileManager extends OutputStreamManager {
     public void close() {
         super.close();
     }
-    ////////////////////////////////////////////////////////////////////////
-    /*  private static SecretKey deriveKey(String password, String salt) throws GeneralSecurityException {
-            byte[] saltBytes = salt != null ? salt.getBytes() : new byte[16];
-            SecureRandom random = new SecureRandom();
-            random.nextBytes(saltBytes);
-
-            KeySpec spec = new PBEKeySpec(password.toCharArray(), saltBytes, 65536, 256);
-            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-            return new SecretKeySpec(factory.generateSecret(spec).getEncoded(), "AES");
-        }
-        public static void main(String[] args) throws GeneralSecurityException {
-            //logger.error("Sensitive error data.");
-            String iv="bG9nZW52aXJvbndhbn";
-            String salt = "a9v5n38s";
-            String key = "mySecretKey";
-            SecretKey secretKey = deriveKey(key, salt);
-            Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
-            //OutputStream os = new FileOutputStream("C:\\log4j-secure-sample\\logs\\secure-log.log", false);
-            //os = new CipherOutputStream(os, cipher);
-    */
-    /*
-    byte[] ivBytes = Base64.getDecoder().decode(iv);
-    IvParameterSpec ivParams = new IvParameterSpec(ivBytes);
-
-    cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParams);
-    String decryptedLog = SecureFileManager.decryptFile("C:\\log4j-secure-sample\\logs\\secure-log.log", "mySecretKey", "a9v5n38s", "bG9nZW52aXJvbndh");
-    System.out.println(decryptedLog);*/
-    /*
-        byte[] ivBytes = "bG9nZW52aXJvbndh".getBytes();
-        IvParameterSpec ivParams = new IvParameterSpec(ivBytes);
-
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParams);
-
-    }*/
 }
