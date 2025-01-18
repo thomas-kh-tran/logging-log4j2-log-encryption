@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import javax.crypto.Cipher;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.SecretKey;
@@ -35,9 +37,26 @@ public class SecureFileManager extends OutputStreamManager {
 
     private static final StatusLogger LOGGER = StatusLogger.getLogger();
     private static final SecureFileManagerFactory FACTORY = new SecureFileManagerFactory();
+    private static final String HASH_SEPARATOR = "||";
+    private final boolean enableHashing;
+    private final MessageDigest digest;
 
-    protected SecureFileManager(OutputStream os, String fileName, Layout<?> layout, boolean writeHeader) {
+    protected SecureFileManager(
+            OutputStream os, String fileName, Layout<?> layout, boolean writeHeader, boolean enableHashing) {
         super(os, fileName, layout, writeHeader);
+        this.enableHashing = enableHashing;
+        this.digest = initDigest(enableHashing);
+    }
+
+    private MessageDigest initDigest(boolean enableHashing) {
+        if (enableHashing) {
+            try {
+                return MessageDigest.getInstance("SHA-256");
+            } catch (NoSuchAlgorithmException e) {
+                LOGGER.error("Failed to initialize SHA-256 MessageDigest.", e);
+            }
+        }
+        return null;
     }
 
     public static SecureFileManager getFileManager(
@@ -46,9 +65,12 @@ public class SecureFileManager extends OutputStreamManager {
             String encryptionKey,
             String iv,
             Layout<?> layout,
-            boolean enableEncryption) {
+            boolean enableEncryption,
+            boolean enableHashing) {
         return (SecureFileManager) getManager(
-                fileName, new FactoryData(fileName, append, encryptionKey, iv, layout, enableEncryption), FACTORY);
+                fileName,
+                new FactoryData(fileName, append, encryptionKey, iv, layout, enableEncryption, enableHashing),
+                FACTORY);
     }
 
     private static class FactoryData {
@@ -58,6 +80,7 @@ public class SecureFileManager extends OutputStreamManager {
         private final String iv;
         private final Layout<?> layout;
         private final boolean enableEncryption;
+        private final boolean enableHashing;
 
         public FactoryData(
                 String fileName,
@@ -65,13 +88,15 @@ public class SecureFileManager extends OutputStreamManager {
                 String encryptionKey,
                 String iv,
                 Layout<?> layout,
-                boolean enableEncryption) {
+                boolean enableEncryption,
+                boolean enableHashing) {
             this.fileName = fileName;
             this.append = append;
             this.encryptionKey = encryptionKey;
             this.iv = iv;
             this.layout = layout;
             this.enableEncryption = enableEncryption;
+            this.enableHashing = enableHashing;
         }
     }
 
@@ -81,26 +106,28 @@ public class SecureFileManager extends OutputStreamManager {
             try {
                 File file = new File(data.fileName);
                 FileUtils.makeParentDirs(file);
-
-                byte[] existingContent = null;
-
-                // Handle append logic by decrypting existing file content
-                if (data.append && file.exists()) {
-                    existingContent = decryptToBytes(file, data.encryptionKey, data.iv);
-                }
-
-                // Prepare output stream (overwrite mode)
-                OutputStream os = new FileOutputStream(file, false);
+                OutputStream os;
                 if (data.enableEncryption && data.encryptionKey != null && !data.encryptionKey.isEmpty()) {
+                    byte[] existingContent = null;
+
+                    // Handle append logic by decrypting existing file content
+                    if (data.append && file.exists()) {
+                        existingContent = decryptToBytes(file, data.encryptionKey, data.iv);
+                    }
+
+                    // Prepare output stream (overwrite mode)
+                    os = new FileOutputStream(file, false);
                     Cipher cipher = initCipher(Cipher.ENCRYPT_MODE, data.encryptionKey, data.iv);
                     os = new CipherOutputStream(os, cipher);
                     // If existing content is not null, re-encrypt and write it back
                     if (existingContent != null) {
                         os.write(existingContent);
                     }
+                } else {
+                    os = new FileOutputStream(file, data.append);
                 }
 
-                return new SecureFileManager(os, name, data.layout, true);
+                return new SecureFileManager(os, name, data.layout, true, data.enableHashing);
             } catch (IOException | GeneralSecurityException ex) {
                 LOGGER.error("Failed to create SecureFileManager for file: {}", name, ex);
                 return null;
@@ -150,9 +177,30 @@ public class SecureFileManager extends OutputStreamManager {
         }
     }
 
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
     @Override
     protected void write(byte[] bytes, int offset, int length, boolean immediateFlush) {
-        super.write(bytes, offset, length, immediateFlush);
+        try {
+            byte[] dataToWrite = bytes;
+
+            // If hashing is enabled, append the hash to the data
+            if (enableHashing && digest != null) {
+                byte[] hash = digest.digest(bytes);
+                String combinedData = new String(bytes) + HASH_SEPARATOR + bytesToHex(hash) + HASH_SEPARATOR + '\n';
+                dataToWrite = combinedData.getBytes();
+            }
+
+            super.write(dataToWrite, 0, dataToWrite.length, immediateFlush);
+        } catch (Exception e) {
+            LOGGER.error("Failed to write hashed and encrypted log data.", e);
+        }
     }
 
     @Override

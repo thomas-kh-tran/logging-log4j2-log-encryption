@@ -17,8 +17,6 @@
 package org.apache.logging.log4j.core.appender;
 
 import java.io.Serializable;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
@@ -33,50 +31,21 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 public class SecureFileAppender extends AbstractAppender {
 
     private final SecureFileManager manager;
-    private final boolean enableHashing;
-    private final boolean enableEncryption;
-    private final MessageDigest digest;
 
     protected SecureFileAppender(
             String name,
             Filter filter,
             Layout<? extends Serializable> layout,
             boolean ignoreExceptions,
-            SecureFileManager manager,
-            boolean enableEncryption,
-            boolean enableHashing) {
+            SecureFileManager manager) {
         super(name, filter, layout, ignoreExceptions, Property.EMPTY_ARRAY);
         this.manager = manager;
-        this.enableEncryption = enableEncryption;
-        this.enableHashing = enableHashing;
-        this.digest = initDigest(enableHashing);
-    }
-
-    private MessageDigest initDigest(boolean enableHashing) {
-        if (enableHashing) {
-            try {
-                return MessageDigest.getInstance("SHA-256");
-            } catch (NoSuchAlgorithmException e) {
-                LOGGER.error("Failed to initialize SHA-256 MessageDigest.", e);
-            }
-        }
-        return null;
     }
 
     @Override
     public void append(LogEvent event) {
         byte[] data = getLayout().toByteArray(event);
-        if (enableHashing && digest != null) {
-            byte[] hash = digest.digest(data);
-            // Create a new array that includes data, hash, and the newline character
-            byte[] combined = new byte[data.length + hash.length + 1]; // +1 for the newline
-            System.arraycopy(data, 0, combined, 0, data.length);
-            System.arraycopy(hash, 0, combined, data.length, hash.length);
-            combined[combined.length - 1] = '\n'; // Add newline at the end
-            manager.write(combined, 0, combined.length, true);
-        } else {
-            manager.write(data, 0, data.length, true);
-        }
+        manager.write(data, 0, data.length, true);
     }
 
     @PluginFactory
@@ -106,9 +75,9 @@ public class SecureFileAppender extends AbstractAppender {
             layout = PatternLayout.createDefaultLayout();
         }
 
-        SecureFileManager manager =
-                SecureFileManager.getFileManager(fileName, append, encryptionKey, iv, layout, enableEncryption);
-        return new SecureFileAppender(name, filter, layout, true, manager, enableEncryption, enableHashing);
+        SecureFileManager manager = SecureFileManager.getFileManager(
+                fileName, append, encryptionKey, iv, layout, enableEncryption, enableHashing);
+        return new SecureFileAppender(name, filter, layout, true, manager);
     }
 
     @Override
