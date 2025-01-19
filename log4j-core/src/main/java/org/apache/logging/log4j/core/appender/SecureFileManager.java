@@ -129,18 +129,23 @@ public class SecureFileManager extends OutputStreamManager {
                 }
 
                 return new SecureFileManager(os, name, data.layout, true, data.enableHashing);
-            } catch (IOException | GeneralSecurityException ex) {
+            } catch (IOException ex) {
                 LOGGER.error("Failed to create SecureFileManager for file: {}", name, ex);
                 return null;
             }
         }
 
-        private Cipher initCipher(int mode, String key, String iv) throws GeneralSecurityException {
-            Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
-            SecretKey secretKey = new SecretKeySpec(key.getBytes(), "AES");
-            IvParameterSpec ivParams = new IvParameterSpec(iv.getBytes());
-            cipher.init(mode, secretKey, ivParams);
-            return cipher;
+        private Cipher initCipher(int mode, String key, String iv) {
+            try {
+                Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
+                SecretKey secretKey = new SecretKeySpec(key.getBytes(), "AES");
+                IvParameterSpec ivParams = new IvParameterSpec(iv.getBytes());
+                cipher.init(mode, secretKey, ivParams);
+                return cipher;
+            } catch (GeneralSecurityException e) {
+                LOGGER.error("Failed. AES secretKey must be 16/32 bytes and IV 16 bytes long");
+                return null;
+            }
         }
 
         // Method to decrypt data and return as byte array
@@ -148,6 +153,7 @@ public class SecureFileManager extends OutputStreamManager {
             try {
                 byte[] encryptedData = Files.readAllBytes(file.toPath());
                 Cipher cipher = initCipher(Cipher.DECRYPT_MODE, encryptionKey, iv);
+                assert cipher != null;
                 return cipher.doFinal(encryptedData);
             } catch (IOException | GeneralSecurityException e) {
                 LOGGER.error("Failed to decrypt file: {}", file.getName(), e);
@@ -159,6 +165,7 @@ public class SecureFileManager extends OutputStreamManager {
         public String decryptToString(String fileName, String encryptionKey, String iv) {
             File file = new File(fileName);
             byte[] decryptedData = decryptToBytes(file, encryptionKey, iv);
+            assert decryptedData != null;
             return new String(decryptedData);
         }
     }

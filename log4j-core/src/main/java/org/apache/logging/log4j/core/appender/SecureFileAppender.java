@@ -30,6 +30,10 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 @Plugin(name = "SecureFileAppender", category = "Core", elementType = "appender", printObject = true)
 public class SecureFileAppender extends AbstractAppender {
 
+    public static final int AES128KeyLength = 16;
+    public static final int AES192KeyLength = 24;
+    public static final int AES256KeyLength = 32;
+    public static final int IVLength = 16;
     private final SecureFileManager manager;
 
     protected SecureFileAppender(
@@ -61,14 +65,35 @@ public class SecureFileAppender extends AbstractAppender {
             @PluginElement("Layout") Layout<? extends Serializable> layout,
             @PluginElement("Filter") Filter filter) {
 
-        if (name == null) {
+        // Verify attributes
+        if (name == null || name.isEmpty()) {
             LOGGER.error("No name provided for SecureFileAppender");
             return null;
         }
 
-        if (fileName == null) {
+        if (fileName == null || fileName.isEmpty()) {
             LOGGER.error("No fileName provided for SecureFileAppender");
             return null;
+        }
+
+        if (enableEncryption) {
+            if (encryptionKey == null) {
+                LOGGER.error("Encryption enabled but no AES compatible SecretKey provided");
+                return null;
+            }
+            int keyLength = encryptionKey.length();
+            if (keyLength != AES128KeyLength && keyLength != AES192KeyLength && keyLength != AES256KeyLength) {
+                LOGGER.error("Encryption enabled but SecretKey is not of compatible length. (16,24,32 bytes)");
+                return null;
+            }
+            if (iv == null) {
+                LOGGER.error("Encryption enabled but no 16 byte IV provided");
+                return null;
+            }
+            if (iv.length() != IVLength) {
+                LOGGER.error("Encryption enabled but IV is not of length 16 bytes. ");
+                return null;
+            }
         }
 
         if (layout == null) {
