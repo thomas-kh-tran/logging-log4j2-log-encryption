@@ -95,13 +95,16 @@ public class SecureFileAppender extends AbstractAppender {
                 return null;
             }
         }
+        if (enableHashing && (salt == null || salt.isEmpty())){
+            LOGGER.info("Using no salt for hashing.");
+        }
 
         if (layout == null) {
             layout = PatternLayout.createDefaultLayout();
         }
 
         SecureFileManager manager = SecureFileManager.getFileManager(
-                fileName, append, encryptionKey, iv, layout, enableEncryption, enableHashing);
+                fileName, append, encryptionKey, iv, salt, layout, enableEncryption, enableHashing);
         return new SecureFileAppender(name, filter, layout, true, manager);
     }
 

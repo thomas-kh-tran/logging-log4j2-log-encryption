@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -41,11 +42,13 @@ public class SecureFileManager extends OutputStreamManager {
     private static final String HASH_SEPARATOR = "||";
     private final boolean enableHashing;
     private final MessageDigest digest;
+    private final String salt;
 
     protected SecureFileManager(
-            OutputStream os, String fileName, Layout<?> layout, boolean writeHeader, boolean enableHashing) {
+            OutputStream os, String fileName, Layout<?> layout, boolean writeHeader, boolean enableHashing, String salt) {
         super(os, fileName, layout, writeHeader);
         this.enableHashing = enableHashing;
+        this.salt = salt;
         this.digest = initDigest(enableHashing);
     }
 
@@ -65,12 +68,13 @@ public class SecureFileManager extends OutputStreamManager {
             boolean append,
             String encryptionKey,
             String iv,
+            String salt,
             Layout<?> layout,
             boolean enableEncryption,
             boolean enableHashing) {
         return (SecureFileManager) getManager(
                 fileName,
-                new FactoryData(fileName, append, encryptionKey, iv, layout, enableEncryption, enableHashing),
+                new FactoryData(fileName, append, encryptionKey, iv, salt, layout, enableEncryption, enableHashing),
                 FACTORY);
     }
 
@@ -79,6 +83,7 @@ public class SecureFileManager extends OutputStreamManager {
         private final boolean append;
         private final String encryptionKey;
         private final String iv;
+        private final String salt;
         private final Layout<?> layout;
         private final boolean enableEncryption;
         private final boolean enableHashing;
@@ -88,6 +93,7 @@ public class SecureFileManager extends OutputStreamManager {
                 boolean append,
                 String encryptionKey,
                 String iv,
+                String salt,
                 Layout<?> layout,
                 boolean enableEncryption,
                 boolean enableHashing) {
@@ -95,6 +101,7 @@ public class SecureFileManager extends OutputStreamManager {
             this.append = append;
             this.encryptionKey = encryptionKey;
             this.iv = iv;
+            this.salt = salt;
             this.layout = layout;
             this.enableEncryption = enableEncryption;
             this.enableHashing = enableHashing;
@@ -128,7 +135,7 @@ public class SecureFileManager extends OutputStreamManager {
                     os = new FileOutputStream(file, data.append);
                 }
 
-                return new SecureFileManager(os, name, data.layout, true, data.enableHashing);
+                return new SecureFileManager(os, name, data.layout, true, data.enableHashing, data.salt);
             } catch (IOException ex) {
                 LOGGER.error("Failed to create SecureFileManager for file: {}", name, ex);
                 return null;
@@ -138,8 +145,8 @@ public class SecureFileManager extends OutputStreamManager {
         private Cipher initCipher(int mode, String key, String iv) {
             try {
                 Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
-                SecretKey secretKey = new SecretKeySpec(key.getBytes(), "AES");
-                IvParameterSpec ivParams = new IvParameterSpec(iv.getBytes());
+                SecretKey secretKey = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "AES");
+                IvParameterSpec ivParams = new IvParameterSpec(iv.getBytes(StandardCharsets.UTF_8));
                 cipher.init(mode, secretKey, ivParams);
                 return cipher;
             } catch (GeneralSecurityException e) {
@@ -209,11 +216,27 @@ public class SecureFileManager extends OutputStreamManager {
 
                 // Hash the normalized data
                 byte[] normalizedData = Arrays.copyOfRange(bytes, offset, offset + dataLength);
-                byte[] hash = digest.digest(normalizedData);
+                byte[] hash;
+                boolean useSalt = (salt != null && !salt.isEmpty());
+                if (useSalt) {
+                    // Convert the salt to bytes and append it to the normalized data
+                    byte[] saltBytes = salt.getBytes(StandardCharsets.UTF_8);
+                    byte[] dataWithSalt = new byte[normalizedData.length + saltBytes.length];
+                    System.arraycopy(normalizedData, 0, dataWithSalt, 0, normalizedData.length);
+                    System.arraycopy(saltBytes, 0, dataWithSalt, normalizedData.length, saltBytes.length);
+                    hash = digest.digest(dataWithSalt);
+                } else {
+                    // Hash without salt
+                    hash = digest.digest(normalizedData);
+                }
 
                 // Construct the output with the hash and a newline
-                String combinedData = new String(bytes, offset, dataLength) + HASH_SEPARATOR + bytesToHex(hash) + '\n';
-                dataToWrite = combinedData.getBytes();
+                String combinedData = new String(bytes, offset, dataLength) + HASH_SEPARATOR + bytesToHex(hash);
+                if (useSalt) {
+                    combinedData += HASH_SEPARATOR + salt; // Append the salt if it's not empty
+                }
+                combinedData += '\n';
+                dataToWrite = combinedData.getBytes(StandardCharsets.UTF_8);
             }
 
             super.write(dataToWrite, 0, dataToWrite.length, immediateFlush);

@@ -37,14 +37,14 @@ class SecureFileAppenderTest {
         Layout<String> layout = PatternLayout.createDefaultLayout();
 
         SecureFileAppender appender = SecureFileAppender.createAppender(
-                "TestAppender",
-                "logs/test.log",
-                null, // not implemented
-                "1234567890123456", // IV 16 bytes
-                "12345678901234561234567890123456", // AES compatible byte length best 32 bit
-                false, // Append
-                true, // encryption
-                true, // hashing
+                "TestAppender",               // Name
+                "logs/test.log",                    // Log file path and name
+                null,                               // Salt
+                "1234567890123456",                 // IV 16 bytes
+                "12345678901234561234567890123456", // AES compatible String byte length best 32 bit
+                false,                              // Append
+                true,                               // Enable encryption
+                true,                               // Enable hashing
                 layout,
                 null);
 
@@ -61,12 +61,12 @@ class SecureFileAppenderTest {
         SecureFileAppender appender = SecureFileAppender.createAppender(
                 "TestAppender",
                 "logs/test.log",
-                null, // not implemented
-                "1234567890123456", // IV 16 bytes
-                null, // AES compatible byte length best 32 bit
-                false, // Append
-                true, // encryption
-                true, // hashing
+                null,
+                "1234567890123456",
+                null, // AES compatible String byte length best 32 bit
+                false,
+                true,
+                true,
                 layout,
                 null);
         assertNull(appender, "Appender should NOT initialize correctly");
@@ -80,12 +80,12 @@ class SecureFileAppenderTest {
         SecureFileAppender appender = SecureFileAppender.createAppender(
                 "TestAppender",
                 "logs/test.log",
-                null, // not implemented
-                "1234567890123456", // IV 16 bytes
+                null,
+                "1234567890123456",
                 "", // AES compatible byte length best 32 bit
-                false, // Append
-                true, // encryption
-                true, // hashing
+                false,
+                true,
+                true,
                 layout,
                 null);
         assertNull(appender, "Appender should NOT initialize correctly");
@@ -99,12 +99,12 @@ class SecureFileAppenderTest {
         SecureFileAppender appender = SecureFileAppender.createAppender(
                 "TestAppender",
                 "logs/test.log",
-                null, // not implemented
+                null,
                 "", // IV 16 bytes
-                "12345678901234561234567890123456", // AES compatible byte length best 32 bit
-                false, // Append
-                true, // encryption
-                true, // hashing
+                "12345678901234561234567890123456",
+                false,
+                true,
+                true,
                 layout,
                 null);
         assertNull(appender, "Appender should NOT initialize correctly");
@@ -118,12 +118,12 @@ class SecureFileAppenderTest {
         SecureFileAppender appender = SecureFileAppender.createAppender(
                 "TestAppender",
                 "logs/test.log",
-                null, // not implemented
+                null,
                 null, // IV 16 bytes
-                "12345678901234561234567890123456", // AES compatible byte length best 32 bit
-                false, // Append
-                true, // encryption
-                true, // hashing
+                "12345678901234561234567890123456",
+                false,
+                true,
+                true,
                 layout,
                 null);
         assertNull(appender, "Appender should NOT initialize correctly");
@@ -137,12 +137,12 @@ class SecureFileAppenderTest {
         SecureFileAppender appender = SecureFileAppender.createAppender(
                 "TestAppender",
                 "",
-                null, // not implemented
-                "1234567890123456", // IV 16 bytes
-                "12345678901234561234567890123456", // AES compatible byte length best 32 bit
-                false, // Append
-                true, // encryption
-                true, // hashing
+                null,
+                "1234567890123456",
+                "12345678901234561234567890123456",
+                false,
+                true,
+                true,
                 layout,
                 null);
         assertNull(appender, "Appender should NOT initialize correctly");
@@ -156,12 +156,12 @@ class SecureFileAppenderTest {
         SecureFileAppender appender = SecureFileAppender.createAppender(
                 "TestAppender",
                 null,
-                null, // not implemented
-                "1234567890123456", // IV 16 bytes
-                "12345678901234561234567890123456", // AES compatible byte length best 32 bit
-                false, // Append
-                true, // encryption
-                true, // hashing
+                null,
+                "1234567890123456",
+                "12345678901234561234567890123456",
+                false,
+                true,
+                true,
                 layout,
                 null);
         assertNull(appender, "Appender should NOT initialize correctly");
@@ -175,12 +175,12 @@ class SecureFileAppenderTest {
         SecureFileAppender appender = SecureFileAppender.createAppender(
                 "",
                 "logs/test.log",
-                null, // not implemented
-                "1234567890123456", // IV 16 bytes
-                "12345678901234561234567890123456", // AES compatible byte length best 32 bit
-                false, // Append
-                true, // encryption
-                true, // hashing
+                null,
+                "1234567890123456",
+                "12345678901234561234567890123456",
+                false,
+                true,
+                true,
                 layout,
                 null);
         assertNull(appender, "Appender should NOT initialize correctly");
@@ -194,12 +194,12 @@ class SecureFileAppenderTest {
         SecureFileAppender appender = SecureFileAppender.createAppender(
                 null,
                 "logs/test.log",
-                null, // not implemented
-                "1234567890123456", // IV 16 bytes
-                "12345678901234561234567890123456", // AES compatible byte length best 32 bit
-                false, // Append
-                true, // encryption
-                true, // hashing
+                null,
+                "1234567890123456",
+                "12345678901234561234567890123456",
+                false,
+                true,
+                true,
                 layout,
                 null);
         assertNull(appender, "Appender should NOT initialize correctly");
