@@ -48,14 +48,14 @@ class SecureFileManagerTest {
         if (logFile.exists()) logFile.delete();
 
         SecureFileManager manager = SecureFileManager.getFileManager(
-                fileName,           // log
-                true,               // Append
-                encryptionKey,      // SecretKey
-                iv,                 // IV
-                null,               // Salt
+                fileName, // log
+                true, // Append
+                encryptionKey, // SecretKey
+                iv, // IV
+                null, // Salt
                 PatternLayout.createDefaultLayout(),
                 true, // Enable Encryption
-                false               // Enable Hashing
+                false // Enable Hashing
                 );
 
         String logMessage = "This is a test log";
@@ -89,15 +89,7 @@ class SecureFileManagerTest {
         if (logFile.exists()) logFile.delete();
 
         SecureFileManager manager = SecureFileManager.getFileManager(
-                fileName,
-                false,
-                null,
-                null,
-                null,
-                PatternLayout.createDefaultLayout(),
-                false,
-                true
-                );
+                fileName, false, null, null, null, PatternLayout.createDefaultLayout(), false, true);
 
         String logMessage = "Hashing test log";
         byte[] data = logMessage.getBytes(StandardCharsets.UTF_8);
@@ -117,6 +109,7 @@ class SecureFileManagerTest {
         manager.close();
         assertTrue(checkHashes(fileName, false), "Hash should match log");
     }
+
     @Test
     void testLogSaltHashing() throws Exception {
         String fileName = "logs/hashed.log";
@@ -125,15 +118,7 @@ class SecureFileManagerTest {
         if (logFile.exists()) logFile.delete();
 
         SecureFileManager manager = SecureFileManager.getFileManager(
-                fileName,
-                false,
-                null,
-                null,
-                salt,
-                PatternLayout.createDefaultLayout(),
-                false,
-                true
-        );
+                fileName, false, null, null, salt, PatternLayout.createDefaultLayout(), false, true);
 
         String logMessage = "Hashing test log";
         byte[] data = logMessage.getBytes(StandardCharsets.UTF_8);
@@ -163,15 +148,7 @@ class SecureFileManagerTest {
         if (logFile.exists()) logFile.delete();
 
         SecureFileManager manager = SecureFileManager.getFileManager(
-                fileName,
-                false,
-                encryptionKey,
-                iv,
-                null,
-                PatternLayout.createDefaultLayout(),
-                true,
-                true
-                );
+                fileName, false, encryptionKey, iv, null, PatternLayout.createDefaultLayout(), true, true);
 
         String logMessage = "Encrypted, hashed test log";
         byte[] data = logMessage.getBytes(StandardCharsets.UTF_8);
@@ -203,15 +180,7 @@ class SecureFileManagerTest {
         if (logFile.exists()) logFile.delete();
 
         SecureFileManager manager = SecureFileManager.getFileManager(
-                fileName,
-                false,
-                encryptionKey,
-                iv,
-                salt,
-                PatternLayout.createDefaultLayout(),
-                true,
-                true
-        );
+                fileName, false, encryptionKey, iv, salt, PatternLayout.createDefaultLayout(), true, true);
 
         String logMessage = "Encrypted, hashed test log";
         byte[] data = logMessage.getBytes(StandardCharsets.UTF_8);
@@ -247,7 +216,7 @@ class SecureFileManagerTest {
                     String salt = useSalt ? parts[2].trim() : "";
 
                     // Compute the hash using the message and salt (if applicable)
-                    String computedHash = useSalt ? computeHash(message+salt) : computeHash(message);
+                    String computedHash = useSalt ? computeHash(message + salt) : computeHash(message);
 
                     // Compare the computed hash with the extracted hash
                     if (!computedHash.equals(extractedHash)) {
@@ -264,7 +233,6 @@ class SecureFileManagerTest {
         }
         return true; // Return true if all hashes match
     }
-
 
     public boolean checkHashesString(String logContent, boolean useSalt) {
         String[] lines = logContent.split("\n");
@@ -283,7 +251,7 @@ class SecureFileManagerTest {
                 String salt = useSalt ? parts[2].trim() : "";
 
                 // Compute the hash using the message and salt (if applicable)
-                String computedHash = useSalt ? computeHash(message+salt) : computeHash(message);
+                String computedHash = useSalt ? computeHash(message + salt) : computeHash(message);
 
                 // Compare the computed hash with the extracted hash
                 if (!computedHash.equals(extractedHash)) {

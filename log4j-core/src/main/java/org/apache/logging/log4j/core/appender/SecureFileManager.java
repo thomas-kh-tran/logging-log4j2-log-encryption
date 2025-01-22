@@ -45,7 +45,12 @@ public class SecureFileManager extends OutputStreamManager {
     private final String salt;
 
     protected SecureFileManager(
-            OutputStream os, String fileName, Layout<?> layout, boolean writeHeader, boolean enableHashing, String salt) {
+            OutputStream os,
+            String fileName,
+            Layout<?> layout,
+            boolean writeHeader,
+            boolean enableHashing,
+            String salt) {
         super(os, fileName, layout, writeHeader);
         this.enableHashing = enableHashing;
         this.salt = salt;

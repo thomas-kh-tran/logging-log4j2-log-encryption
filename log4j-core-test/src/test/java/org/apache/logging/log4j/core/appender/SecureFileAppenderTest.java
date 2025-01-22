@@ -37,14 +37,14 @@ class SecureFileAppenderTest {
         Layout<String> layout = PatternLayout.createDefaultLayout();
 
         SecureFileAppender appender = SecureFileAppender.createAppender(
-                "TestAppender",               // Name
-                "logs/test.log",                    // Log file path and name
-                null,                               // Salt
-                "1234567890123456",                 // IV 16 bytes
+                "TestAppender", // Name
+                "logs/test.log", // Log file path and name
+                null, // Salt
+                "1234567890123456", // IV 16 bytes
                 "12345678901234561234567890123456", // AES compatible String byte length best 32 bit
-                false,                              // Append
-                true,                               // Enable encryption
-                true,                               // Enable hashing
+                false, // Append
+                true, // Enable encryption
+                true, // Enable hashing
                 layout,
                 null);
 

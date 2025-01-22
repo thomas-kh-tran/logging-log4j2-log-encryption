@@ -95,7 +95,7 @@ public class SecureFileAppender extends AbstractAppender {
                 return null;
             }
         }
-        if (enableHashing && (salt == null || salt.isEmpty())){
+        if (enableHashing && (salt == null || salt.isEmpty())) {
             LOGGER.info("Using no salt for hashing.");
         }
 
