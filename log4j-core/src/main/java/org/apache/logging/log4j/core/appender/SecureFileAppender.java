@@ -56,12 +56,12 @@ public class SecureFileAppender extends AbstractAppender {
     public static SecureFileAppender createAppender(
             @PluginAttribute("name") String name,
             @PluginAttribute("fileName") String fileName,
-            @PluginAttribute("salt") String salt,
             @PluginAttribute("iv") String iv,
             @PluginAttribute("encryptionKey") String encryptionKey,
             @PluginAttribute(value = "append", defaultBoolean = true) boolean append,
             @PluginAttribute(value = "enableEncryption", defaultBoolean = false) boolean enableEncryption,
             @PluginAttribute(value = "enableHashing", defaultBoolean = false) boolean enableHashing,
+            @PluginAttribute(value = "useSalt", defaultBoolean = true) boolean useSalt,
             @PluginElement("Layout") Layout<? extends Serializable> layout,
             @PluginElement("Filter") Filter filter) {
 
@@ -95,7 +95,7 @@ public class SecureFileAppender extends AbstractAppender {
                 return null;
             }
         }
-        if (enableHashing && (salt == null || salt.isEmpty())) {
+        if (enableHashing && !useSalt) {
             LOGGER.info("Using no salt for hashing.");
         }
 
@@ -104,7 +104,7 @@ public class SecureFileAppender extends AbstractAppender {
         }
 
         SecureFileManager manager = SecureFileManager.getFileManager(
-                fileName, append, encryptionKey, iv, salt, layout, enableEncryption, enableHashing);
+                fileName, append, encryptionKey, iv, layout, enableEncryption, enableHashing, useSalt);
         return new SecureFileAppender(name, filter, layout, true, manager);
     }
 

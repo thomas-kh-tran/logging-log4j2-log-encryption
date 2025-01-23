@@ -25,7 +25,9 @@ import java.nio.file.Files;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Base64;
 import javax.crypto.Cipher;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.SecretKey;
@@ -42,7 +44,7 @@ public class SecureFileManager extends OutputStreamManager {
     private static final String HASH_SEPARATOR = "||";
     private final boolean enableHashing;
     private final MessageDigest digest;
-    private final String salt;
+    private final boolean useSalt;
 
     protected SecureFileManager(
             OutputStream os,
@@ -50,10 +52,10 @@ public class SecureFileManager extends OutputStreamManager {
             Layout<?> layout,
             boolean writeHeader,
             boolean enableHashing,
-            String salt) {
+            boolean useSalt) {
         super(os, fileName, layout, writeHeader);
         this.enableHashing = enableHashing;
-        this.salt = salt;
+        this.useSalt = useSalt;
         this.digest = initDigest(enableHashing);
     }
 
@@ -73,13 +75,13 @@ public class SecureFileManager extends OutputStreamManager {
             boolean append,
             String encryptionKey,
             String iv,
-            String salt,
             Layout<?> layout,
             boolean enableEncryption,
-            boolean enableHashing) {
+            boolean enableHashing,
+            boolean useSalt) {
         return (SecureFileManager) getManager(
                 fileName,
-                new FactoryData(fileName, append, encryptionKey, iv, salt, layout, enableEncryption, enableHashing),
+                new FactoryData(fileName, append, encryptionKey, iv, layout, enableEncryption, enableHashing, useSalt),
                 FACTORY);
     }
 
@@ -88,7 +90,7 @@ public class SecureFileManager extends OutputStreamManager {
         private final boolean append;
         private final String encryptionKey;
         private final String iv;
-        private final String salt;
+        private final boolean useSalt;
         private final Layout<?> layout;
         private final boolean enableEncryption;
         private final boolean enableHashing;
@@ -98,18 +100,18 @@ public class SecureFileManager extends OutputStreamManager {
                 boolean append,
                 String encryptionKey,
                 String iv,
-                String salt,
                 Layout<?> layout,
                 boolean enableEncryption,
-                boolean enableHashing) {
+                boolean enableHashing,
+                boolean useSalt) {
             this.fileName = fileName;
             this.append = append;
             this.encryptionKey = encryptionKey;
             this.iv = iv;
-            this.salt = salt;
             this.layout = layout;
             this.enableEncryption = enableEncryption;
             this.enableHashing = enableHashing;
+            this.useSalt = useSalt;
         }
     }
 
@@ -140,7 +142,7 @@ public class SecureFileManager extends OutputStreamManager {
                     os = new FileOutputStream(file, data.append);
                 }
 
-                return new SecureFileManager(os, name, data.layout, true, data.enableHashing, data.salt);
+                return new SecureFileManager(os, name, data.layout, true, data.enableHashing, data.useSalt);
             } catch (IOException ex) {
                 LOGGER.error("Failed to create SecureFileManager for file: {}", name, ex);
                 return null;
@@ -222,10 +224,14 @@ public class SecureFileManager extends OutputStreamManager {
                 // Hash the normalized data
                 byte[] normalizedData = Arrays.copyOfRange(bytes, offset, offset + dataLength);
                 byte[] hash;
-                boolean useSalt = (salt != null && !salt.isEmpty());
+                byte[] saltBytes = new byte[1];
                 if (useSalt) {
-                    // Convert the salt to bytes and append it to the normalized data
-                    byte[] saltBytes = salt.getBytes(StandardCharsets.UTF_8);
+                    // Generate a 16-byte salt using SecureRandom
+                    SecureRandom secureRandom = new SecureRandom();
+                    secureRandom.nextBytes(saltBytes);
+                    //String salt = bytesToHex(saltBytes);
+                    //Append it to the normalized data
+                    //saltBytes = salt.getBytes(StandardCharsets.UTF_8);
                     byte[] dataWithSalt = new byte[normalizedData.length + saltBytes.length];
                     System.arraycopy(normalizedData, 0, dataWithSalt, 0, normalizedData.length);
                     System.arraycopy(saltBytes, 0, dataWithSalt, normalizedData.length, saltBytes.length);
@@ -235,13 +241,20 @@ public class SecureFileManager extends OutputStreamManager {
                     hash = digest.digest(normalizedData);
                 }
 
-                // Construct the output with the hash and a newline
-                String combinedData = new String(bytes, offset, dataLength) + HASH_SEPARATOR + bytesToHex(hash);
+                // Build the output string with data, hash, and optionally salt
+                StringBuilder combinedDataBuilder = new StringBuilder();
+                combinedDataBuilder.append(new String(normalizedData, StandardCharsets.UTF_8))
+                        .append(HASH_SEPARATOR)
+                        .append(bytesToHex(hash)); // Append the hash
+
                 if (useSalt) {
-                    combinedData += HASH_SEPARATOR + salt; // Append the salt if it's not empty
+                    // Append the Base64-encoded salt
+                    String saltBase64 = Base64.getEncoder().encodeToString(saltBytes);
+                    combinedDataBuilder.append(HASH_SEPARATOR).append(saltBase64);
                 }
-                combinedData += '\n';
-                dataToWrite = combinedData.getBytes(StandardCharsets.UTF_8);
+
+                combinedDataBuilder.append('\n');
+                dataToWrite = combinedDataBuilder.toString().getBytes(StandardCharsets.UTF_8);
             }
 
             super.write(dataToWrite, 0, dataToWrite.length, immediateFlush);
