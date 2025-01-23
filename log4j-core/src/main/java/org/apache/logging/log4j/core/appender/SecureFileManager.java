@@ -42,6 +42,7 @@ public class SecureFileManager extends OutputStreamManager {
     private static final StatusLogger LOGGER = StatusLogger.getLogger();
     private static final SecureFileManagerFactory FACTORY = new SecureFileManagerFactory();
     private static final String HASH_SEPARATOR = "||";
+    private static final int SALT_BYTE_LENGTH = 16;
     private final boolean enableHashing;
     private final MessageDigest digest;
     private final boolean useSalt;
@@ -224,14 +225,12 @@ public class SecureFileManager extends OutputStreamManager {
                 // Hash the normalized data
                 byte[] normalizedData = Arrays.copyOfRange(bytes, offset, offset + dataLength);
                 byte[] hash;
-                byte[] saltBytes = new byte[1];
+                byte[] saltBytes = new byte[SALT_BYTE_LENGTH];
                 if (useSalt) {
                     // Generate a 16-byte salt using SecureRandom
                     SecureRandom secureRandom = new SecureRandom();
                     secureRandom.nextBytes(saltBytes);
-                    //String salt = bytesToHex(saltBytes);
-                    //Append it to the normalized data
-                    //saltBytes = salt.getBytes(StandardCharsets.UTF_8);
+                    // Append it to the normalized data
                     byte[] dataWithSalt = new byte[normalizedData.length + saltBytes.length];
                     System.arraycopy(normalizedData, 0, dataWithSalt, 0, normalizedData.length);
                     System.arraycopy(saltBytes, 0, dataWithSalt, normalizedData.length, saltBytes.length);
@@ -243,7 +242,8 @@ public class SecureFileManager extends OutputStreamManager {
 
                 // Build the output string with data, hash, and optionally salt
                 StringBuilder combinedDataBuilder = new StringBuilder();
-                combinedDataBuilder.append(new String(normalizedData, StandardCharsets.UTF_8))
+                combinedDataBuilder
+                        .append(new String(normalizedData, StandardCharsets.UTF_8))
                         .append(HASH_SEPARATOR)
                         .append(bytesToHex(hash)); // Append the hash
 

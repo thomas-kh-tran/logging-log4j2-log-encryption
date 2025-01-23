@@ -61,7 +61,7 @@ public class SecureFileAppender extends AbstractAppender {
             @PluginAttribute(value = "append", defaultBoolean = true) boolean append,
             @PluginAttribute(value = "enableEncryption", defaultBoolean = false) boolean enableEncryption,
             @PluginAttribute(value = "enableHashing", defaultBoolean = false) boolean enableHashing,
-            @PluginAttribute(value = "useSalt", defaultBoolean = true) boolean useSalt,
+            @PluginAttribute(value = "useSalt", defaultBoolean = false) boolean useSalt,
             @PluginElement("Layout") Layout<? extends Serializable> layout,
             @PluginElement("Filter") Filter filter) {
 

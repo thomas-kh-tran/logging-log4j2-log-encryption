@@ -32,7 +32,6 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
-
 import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.junit.jupiter.api.Test;
 
@@ -57,7 +56,7 @@ class SecureFileManagerTest {
                 PatternLayout.createDefaultLayout(),
                 true, // Enable Encryption
                 false, // Enable Hashing
-                false //Enable Salting
+                false // Enable Salting
                 );
 
         String logMessage = "This is a test log";
@@ -201,7 +200,14 @@ class SecureFileManagerTest {
         assertNotNull(decryptedLog, "Decrypted log should not be null");
         assertTrue(checkHashesString(decryptedLog, true), "Hash should match decrypted String");
     }
+
     // Helper functions
+    /**
+     * Validates the hash integrity of a log file's content.
+     *
+     * @param filePath The file path of the log file to validate.
+     * @param useSalt  A boolean indicating whether to use a salt in hash computation.
+     */
     private boolean checkHashes(String filePath, boolean useSalt) {
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
@@ -234,6 +240,12 @@ class SecureFileManagerTest {
         return true; // Return true if all hashes match
     }
 
+    /**
+     * Validates the hash integrity of log content provided as a string.
+     *
+     * @param logContent The log content to validate.
+     * @param useSalt    A boolean indicating whether to use a salt in hash computation.
+     */
     public boolean checkHashesString(String logContent, boolean useSalt) {
         String[] lines = logContent.split("\n");
 
@@ -265,18 +277,25 @@ class SecureFileManagerTest {
         return true;
     }
 
+    /**
+     * Computes the hash of a given String (UTF-8 encoded) and Salt (Base64) with Algorithm SHA-256 using the default provider
+     *
+     * @param message The String to be hashed.
+     * @param salt The salt to be appended.
+     * @return computed hash
+     */
     private String computeHash(String message, String salt) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] data = message.getBytes(StandardCharsets.UTF_8);
             byte[] hashBytes;
-            if (salt != null){
+            if (salt != null) {
                 byte[] storedSalt = Base64.getDecoder().decode(salt);
                 byte[] dataWithSalt = new byte[data.length + storedSalt.length];
                 System.arraycopy(data, 0, dataWithSalt, 0, data.length);
                 System.arraycopy(storedSalt, 0, dataWithSalt, data.length, storedSalt.length);
                 hashBytes = digest.digest(dataWithSalt);
-            }else {
+            } else {
                 hashBytes = digest.digest(data);
             }
             StringBuilder hexString = new StringBuilder();
