@@ -27,6 +27,31 @@ import org.apache.logging.log4j.core.config.plugins.PluginElement;
 import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 
+/**
+ * A custom Log4j2 appender that writes log events to a file securely using optionally encryption, hashing and salting.
+ * <p>
+ * This appender integrates with {@link SecureFileManager} to provide the following features:
+ * <ul>
+ *     <li>Encrypt log entries using AES encryption in CTR mode.</li>
+ *     <li>Append cryptographic hashes for log integrity verification.</li>
+ *     <li>Salting to enhance hash uniqueness.</li>
+ * </ul>
+ * </p>
+ * <p>
+ * Configuration example in Log4j2 XML configuration:
+ * </p>
+ * <pre>
+ * {@code
+ * <Appenders>
+ *     <SecureFileAppender name="SecureFileAppender" fileName="logs/secure.log"
+ *                         encryptionKey="AESCompatibleKey16/24/32ByteLength00" iv="16byteIV00000000" append="true"
+ *                         enableEncryption="true" enableHashing="true" useSalt="true">
+ *         <PatternLayout pattern="%d{ISO8601} %m%n" />
+ *     </SecureFileAppender>
+ * </Appenders>
+ * }
+ * </pre>
+ */
 @Plugin(name = "SecureFileAppender", category = "Core", elementType = "appender", printObject = true)
 public class SecureFileAppender extends AbstractAppender {
 
@@ -52,6 +77,25 @@ public class SecureFileAppender extends AbstractAppender {
         manager.write(data, 0, data.length, true);
     }
 
+    /**
+     * Factory method to create a new instance of {@code SecureFileAppender}.
+     * <p>
+     * This method performs validation on the provided configuration attributes to ensure that
+     * encryption and hashing are properly configured.
+     * </p>
+     *
+     * @param name            The name of the appender.
+     * @param fileName        The name of the file where logs will be written.
+     * @param iv              The initialization vector for AES encryption (16 bytes), required if encrypting.
+     * @param encryptionKey   The AES encryption key (16, 24, or 32 bytes), required if encrypting.
+     * @param append          Whether to append to the existing file (default: {@code true}).
+     * @param enableEncryption Whether encryption should be enabled (default: {@code false}).
+     * @param enableHashing    Whether hashing should be enabled for log entries (default: {@code false}).
+     * @param useSalt         Whether salting should be used for hashes (default: {@code false}).
+     * @param layout          The layout to format log entries. If {@code null}, a default layout is used.
+     * @param filter          The filter to control event processing.
+     * @return A new instance of {@code SecureFileAppender}, or {@code null} if validation fails.
+     */
     @PluginFactory
     public static SecureFileAppender createAppender(
             @PluginAttribute("name") String name,

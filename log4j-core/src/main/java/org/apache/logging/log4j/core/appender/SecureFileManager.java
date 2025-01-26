@@ -37,6 +37,22 @@ import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.util.FileUtils;
 import org.apache.logging.log4j.status.StatusLogger;
 
+/**
+ * A custom implementation of {@link OutputStreamManager} for the Log4j2 framework
+ * that supports secure logging with encryption, hashing and salting.
+ * <p>
+ * This class provides functionality to:
+ * <ul>
+ *     <li>Encrypt log files using AES encryption in CTR mode.</li>
+ *     <li>Append SHA-256 hashes to log entries for integrity verification using '||' as a separator.</li>
+ *     <li>Additionally use salting to enhance hash uniqueness, appending the salt using '||' as a separator.</li>
+ * </ul>
+ * </p>
+ * <p>
+ * The class also includes utilities to decrypt encrypted log files and
+ * retrieve their content.
+ * </p>
+ */
 public class SecureFileManager extends OutputStreamManager {
 
     private static final StatusLogger LOGGER = StatusLogger.getLogger();
@@ -47,19 +63,35 @@ public class SecureFileManager extends OutputStreamManager {
     private final MessageDigest digest;
     private final boolean useSalt;
 
+    /**
+     * Constructs a new instance of {@link SecureFileManager}.
+     *
+     * @param os           The output stream used for writing logs.
+     * @param filePath     The name and path of the log file.
+     * @param layout       The layout to format log events.
+     * @param writeHeader  Indicates whether to write a header at the beginning of the log.
+     * @param enableHashing Specifies if hashing should be applied to log entries.
+     * @param useSalt      Specifies if salting should be used for hashes.
+     */
     protected SecureFileManager(
             OutputStream os,
-            String fileName,
+            String filePath,
             Layout<?> layout,
             boolean writeHeader,
             boolean enableHashing,
             boolean useSalt) {
-        super(os, fileName, layout, writeHeader);
+        super(os, filePath, layout, writeHeader);
         this.enableHashing = enableHashing;
         this.useSalt = useSalt;
         this.digest = initDigest(enableHashing);
     }
 
+    /**
+     * Initializes a {@link MessageDigest} instance for hashing if enabled.
+     *
+     * @param enableHashing A boolean indicator if hashing is enabled.
+     * @return A {@link MessageDigest} instance or {@code null} if hashing is disabled.
+     */
     private MessageDigest initDigest(boolean enableHashing) {
         if (enableHashing) {
             try {
@@ -70,9 +102,21 @@ public class SecureFileManager extends OutputStreamManager {
         }
         return null;
     }
-
+    /**
+     * Retrieves or creates a {@link SecureFileManager} instance.
+     *
+     * @param filePath        The name and path of the log file.
+     * @param append          Specifies whether to append to the existing file.
+     * @param encryptionKey   The encryption key used for encrypting log entries.
+     * @param iv              The initialization vector for AES encryption.
+     * @param layout          The layout used to format log events.
+     * @param enableEncryption Indicates whether encryption should be enabled.
+     * @param enableHashing    Indicates whether hashing should be enabled.
+     * @param useSalt         Specifies if salting should be applied to hashes.
+     * @return A {@link SecureFileManager} instance or {@code null} if an error occurs.
+     */
     public static SecureFileManager getFileManager(
-            String fileName,
+            String filePath,
             boolean append,
             String encryptionKey,
             String iv,
@@ -81,8 +125,8 @@ public class SecureFileManager extends OutputStreamManager {
             boolean enableHashing,
             boolean useSalt) {
         return (SecureFileManager) getManager(
-                fileName,
-                new FactoryData(fileName, append, encryptionKey, iv, layout, enableEncryption, enableHashing, useSalt),
+                filePath,
+                new FactoryData(filePath, append, encryptionKey, iv, layout, enableEncryption, enableHashing, useSalt),
                 FACTORY);
     }
 
@@ -186,16 +230,19 @@ public class SecureFileManager extends OutputStreamManager {
     }
 
     /**
-     * Public method to allow users to decrypt the log file and get the content as a String.
-     * Example usage:
-     * System.out.println(SecureFileManager.decryptFile("logs/secure.log", "yourKey", "yourIV"));
+     * Decrypts the content of an encrypted log file and returns it as a String
+     *
+     * @param filePath      The name and path of the encrypted log file.
+     * @param encryptionKey The encryption key used for decryption.
+     * @param iv            The initialization vector used for decryption.
+     * @return The decrypted content of the log file, or {@code null} if decryption fails.
      */
-    public static String decryptFile(String fileName, String encryptionKey, String iv) {
+    public static String decryptFile(String filePath, String encryptionKey, String iv) {
         try {
             SecureFileManagerFactory factory = new SecureFileManagerFactory();
-            return factory.decryptToString(fileName, encryptionKey, iv);
+            return factory.decryptToString(filePath, encryptionKey, iv);
         } catch (Exception e) {
-            LOGGER.error("Failed to decrypt file: {}", fileName, e);
+            LOGGER.error("Failed to decrypt file: {}", filePath, e);
             return null;
         }
     }
@@ -240,14 +287,14 @@ public class SecureFileManager extends OutputStreamManager {
                     hash = digest.digest(normalizedData);
                 }
 
-                // Build the output string with data, hash, and optionally salt
+                // Build the output string with data, hash
                 StringBuilder combinedDataBuilder = new StringBuilder();
                 combinedDataBuilder
                         .append(new String(normalizedData, StandardCharsets.UTF_8))
                         .append(HASH_SEPARATOR)
-                        .append(bytesToHex(hash)); // Append the hash
+                        .append(bytesToHex(hash));
 
-                if (useSalt) {
+                if (useSalt) { // optionally salt
                     // Append the Base64-encoded salt
                     String saltBase64 = Base64.getEncoder().encodeToString(saltBytes);
                     combinedDataBuilder.append(HASH_SEPARATOR).append(saltBase64);
